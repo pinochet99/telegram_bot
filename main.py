@@ -212,9 +212,9 @@ async def booklet_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
     text = f"Принято! Ваш запрос: буклет {data['format']}, {data['color']}, {data['paper']}, тираж {data['print']}. Наши менеджеры обязательно свяжутся с вами для уточнения стоимости и сроков. Благодарим Вас!"
     await query.message.reply_text(text)
     
-    # Уведомление владельцу
+    # Уведомление владельцу (ИСПРАВЛЕНО)
     owner_text = f"Новый заказ — буклет\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nБумага: {data['paper']}\nТираж: {data['print']}"
-    await context.bot.send_message(chat_id=OWNER_CHAT_ID = 63938809, text=owner_text)
+    await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
     
     context.user_data.clear()
     return -1
@@ -351,9 +351,11 @@ async def catalog_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
     data = context.user_data['catalog_data']
     username = update.effective_user.username or update.effective_user.first_name
     
+    # Уведомление клиенту
     text = f"Принято! Ваш запрос: каталог формата {data['format']}, {data['color']}, {data['pages']} полос, обложка: {data['cover']}, блок: {data['block']}, тираж {data['print']}. Наши менеджеры обязательно свяжутся с вами для уточнения стоимости и сроков. Благодарим Вас!"
     await query.message.reply_text(text)
     
+    # Уведомление владельцу
     owner_text = f"Новый заказ — каталог\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nПолос: {data['pages']}\nОбложка: {data['cover']}\nБлок: {data['block']}\nТираж: {data['print']}"
     await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
     
