@@ -5,14 +5,14 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 # --- ТОКЕНЫ И НАСТРОЙКИ ---
 TELEGRAM_TOKEN = "8833699342:AAGud8WsyHej9LtI5d6xkDRo3xoLSm2hqPg"
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 OWNER_CHAT_ID = 63938809
 
 # --- СОСТОЯНИЯ ДЛЯ ОПРОСОВ ---
 BOOKLET_FORMAT, BOOKLET_COLOR, BOOKLET_PAPER, BOOKLET_PRINT = range(4)
 CATALOG_FORMAT, CATALOG_COLOR, CATALOG_PAGES, CATALOG_COVER, CATALOG_BLOCK, CATALOG_PRINT = range(6)
 
-# --- ФУНКЦИЯ ЗАПРОСА К OPENROUTER (БЕСПЛАТНАЯ МОДЕЛЬ) ---
+# --- ФУНКЦИЯ ЗАПРОСА К OPENROUTER ---
 async def ask_openrouter(user_message):
     try:
         response = requests.post(
@@ -24,7 +24,7 @@ async def ask_openrouter(user_message):
                 "Content-Type": "application/json",
             },
             json={
-                "model": "google/gemini-2.0-flash-lite:free",  # БЕСПЛАТНАЯ МОДЕЛЬ!
+                "model": "google/gemini-2.0-flash-lite:free",
                 "messages": [
                     {"role": "system", "content": "Ты — консультант по дизайну и рекламе. Отвечай на русском языке, кратко и по делу."},
                     {"role": "user", "content": user_message}
@@ -37,12 +37,11 @@ async def ask_openrouter(user_message):
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"]
         else:
-            # Если модель недоступна — пробуем другую бесплатную
             return await ask_openrouter_fallback(user_message)
     except Exception as e:
         return await ask_openrouter_fallback(user_message)
 
-# --- ЗАПАСНАЯ БЕСПЛАТНАЯ МОДЕЛЬ ---
+# --- ЗАПАСНАЯ МОДЕЛЬ ---
 async def ask_openrouter_fallback(user_message):
     try:
         response = requests.post(
@@ -54,7 +53,7 @@ async def ask_openrouter_fallback(user_message):
                 "Content-Type": "application/json",
             },
             json={
-                "model": "microsoft/phi-3-medium-128k-instruct:free",  # Запасная бесплатная модель
+                "model": "microsoft/phi-3-medium-128k-instruct:free",
                 "messages": [
                     {"role": "system", "content": "Ты — консультант по дизайну и рекламе. Отвечай на русском языке, кратко и по делу."},
                     {"role": "user", "content": user_message}
@@ -144,14 +143,259 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Стоимость зависит от сложности проекта. Мы сделаем расчёт после того, как вы оставите заявку. Напишите нам, и мы свяжемся с вами для консультации.")
         return
     
-    # Всё остальное — через OpenRouter
+    # Всё остальное — через ИИ
     reply = await ask_openrouter(user_message)
     await update.message.reply_text(reply, parse_mode="Markdown")
 
-# --- ФУНКЦИИ ДЛЯ БУКЛЕТА (шаги опроса) ---
-# ... (они остаются без изменений, но я их не копирую, чтобы не делать сообщение слишком длинным)
-# Если нужна полная версия — напишите, я пришлю отдельно.
+# ========================================
+# ФУНКЦИИ ДЛЯ БУКЛЕТА (опрос в 4 шага)
+# ========================================
+async def start_booklet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("A4", callback_data="booklet_a4")],
+        [InlineKeyboardButton("A5", callback_data="booklet_a5")],
+        [InlineKeyboardButton("A3", callback_data="booklet_a3")],
+        [InlineKeyboardButton("Другой", callback_data="booklet_other")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Какой формат вам нужен?", reply_markup=reply_markup)
+    context.user_data['booklet_data'] = {}
+    return BOOKLET_FORMAT
 
+async def booklet_format_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    format_map = {
+        "booklet_a4": "A4",
+        "booklet_a5": "A5",
+        "booklet_a3": "A3",
+        "booklet_other": "Другой"
+    }
+    context.user_data['booklet_data']['format'] = format_map[query.data]
+    
+    keyboard = [
+        [InlineKeyboardButton("CMYK (полноцвет)", callback_data="booklet_cmyk")],
+        [InlineKeyboardButton("Чёрно-белый", callback_data="booklet_bw")],
+        [InlineKeyboardButton("Смешанный", callback_data="booklet_mixed")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("Какая цветность?", reply_markup=reply_markup)
+    return BOOKLET_COLOR
+
+async def booklet_color_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    color_map = {
+        "booklet_cmyk": "CMYK (полноцвет)",
+        "booklet_bw": "Чёрно-белый",
+        "booklet_mixed": "Смешанный"
+    }
+    context.user_data['booklet_data']['color'] = color_map[query.data]
+    
+    keyboard = [
+        [InlineKeyboardButton("Глянец", callback_data="booklet_glossy")],
+        [InlineKeyboardButton("Матовая", callback_data="booklet_matte")],
+        [InlineKeyboardButton("Дизайнерская", callback_data="booklet_design")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("Какой тип бумаги?", reply_markup=reply_markup)
+    return BOOKLET_PAPER
+
+async def booklet_paper_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    paper_map = {
+        "booklet_glossy": "Глянец",
+        "booklet_matte": "Матовая",
+        "booklet_design": "Дизайнерская"
+    }
+    context.user_data['booklet_data']['paper'] = paper_map[query.data]
+    
+    keyboard = [
+        [InlineKeyboardButton("до 100", callback_data="booklet_100")],
+        [InlineKeyboardButton("100-500", callback_data="booklet_500")],
+        [InlineKeyboardButton("500-1000", callback_data="booklet_1000")],
+        [InlineKeyboardButton("более 1000", callback_data="booklet_1000_plus")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("Какой тираж?", reply_markup=reply_markup)
+    return BOOKLET_PRINT
+
+async def booklet_print_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    print_map = {
+        "booklet_100": "до 100",
+        "booklet_500": "100-500",
+        "booklet_1000": "500-1000",
+        "booklet_1000_plus": "более 1000"
+    }
+    context.user_data['booklet_data']['print'] = print_map[query.data]
+    
+    data = context.user_data['booklet_data']
+    username = update.effective_user.username or update.effective_user.first_name
+    
+    # Клиенту
+    text = f"Принято! Ваш запрос: буклет {data['format']}, {data['color']}, {data['paper']}, тираж {data['print']}. Наши менеджеры обязательно свяжутся с вами для уточнения стоимости и сроков. Благодарим Вас!"
+    await query.message.reply_text(text)
+    
+    # Владельцу
+    owner_text = f"Новый заказ — буклет\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nБумага: {data['paper']}\nТираж: {data['print']}"
+    await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
+    
+    context.user_data.clear()
+    return -1
+
+# ========================================
+# ФУНКЦИИ ДЛЯ КАТАЛОГА (опрос в 6 шагов)
+# ========================================
+async def start_catalog(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("A4", callback_data="catalog_a4")],
+        [InlineKeyboardButton("A5", callback_data="catalog_a5")],
+        [InlineKeyboardButton("A3", callback_data="catalog_a3")],
+        [InlineKeyboardButton("Другой", callback_data="catalog_other")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Какой формат вам нужен?", reply_markup=reply_markup)
+    context.user_data['catalog_data'] = {}
+    return CATALOG_FORMAT
+
+async def catalog_format_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    format_map = {
+        "catalog_a4": "A4",
+        "catalog_a5": "A5",
+        "catalog_a3": "A3",
+        "catalog_other": "Другой"
+    }
+    context.user_data['catalog_data']['format'] = format_map[query.data]
+    
+    keyboard = [
+        [InlineKeyboardButton("CMYK (полноцвет)", callback_data="catalog_cmyk")],
+        [InlineKeyboardButton("Чёрно-белый", callback_data="catalog_bw")],
+        [InlineKeyboardButton("Смешанный", callback_data="catalog_mixed")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("Какая цветность?", reply_markup=reply_markup)
+    return CATALOG_COLOR
+
+async def catalog_color_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    color_map = {
+        "catalog_cmyk": "CMYK (полноцвет)",
+        "catalog_bw": "Чёрно-белый",
+        "catalog_mixed": "Смешанный"
+    }
+    context.user_data['catalog_data']['color'] = color_map[query.data]
+    
+    keyboard = [
+        [InlineKeyboardButton("до 8", callback_data="catalog_8")],
+        [InlineKeyboardButton("8-16", callback_data="catalog_16")],
+        [InlineKeyboardButton("16-32", callback_data="catalog_32")],
+        [InlineKeyboardButton("более 32", callback_data="catalog_32_plus")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("Сколько полос (страниц) в каталоге?", reply_markup=reply_markup)
+    return CATALOG_PAGES
+
+async def catalog_pages_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    pages_map = {
+        "catalog_8": "до 8",
+        "catalog_16": "8-16",
+        "catalog_32": "16-32",
+        "catalog_32_plus": "более 32"
+    }
+    context.user_data['catalog_data']['pages'] = pages_map[query.data]
+    
+    keyboard = [
+        [InlineKeyboardButton("Глянец", callback_data="catalog_cover_glossy")],
+        [InlineKeyboardButton("Матовая", callback_data="catalog_cover_matte")],
+        [InlineKeyboardButton("Дизайнерская", callback_data="catalog_cover_design")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("Какой тип бумаги для обложки?", reply_markup=reply_markup)
+    return CATALOG_COVER
+
+async def catalog_cover_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    cover_map = {
+        "catalog_cover_glossy": "Глянец",
+        "catalog_cover_matte": "Матовая",
+        "catalog_cover_design": "Дизайнерская"
+    }
+    context.user_data['catalog_data']['cover'] = cover_map[query.data]
+    
+    keyboard = [
+        [InlineKeyboardButton("Глянец", callback_data="catalog_block_glossy")],
+        [InlineKeyboardButton("Матовая", callback_data="catalog_block_matte")],
+        [InlineKeyboardButton("Дизайнерская", callback_data="catalog_block_design")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("Какой тип бумаги для внутреннего блока?", reply_markup=reply_markup)
+    return CATALOG_BLOCK
+
+async def catalog_block_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    block_map = {
+        "catalog_block_glossy": "Глянец",
+        "catalog_block_matte": "Матовая",
+        "catalog_block_design": "Дизайнерская"
+    }
+    context.user_data['catalog_data']['block'] = block_map[query.data]
+    
+    keyboard = [
+        [InlineKeyboardButton("до 100", callback_data="catalog_100")],
+        [InlineKeyboardButton("100-500", callback_data="catalog_500")],
+        [InlineKeyboardButton("500-1000", callback_data="catalog_1000")],
+        [InlineKeyboardButton("более 1000", callback_data="catalog_1000_plus")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("Какой тираж?", reply_markup=reply_markup)
+    return CATALOG_PRINT
+
+async def catalog_print_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.delete()
+    print_map = {
+        "catalog_100": "до 100",
+        "catalog_500": "100-500",
+        "catalog_1000": "500-1000",
+        "catalog_1000_plus": "более 1000"
+    }
+    context.user_data['catalog_data']['print'] = print_map[query.data]
+    
+    data = context.user_data['catalog_data']
+    username = update.effective_user.username or update.effective_user.first_name
+    
+    # Клиенту
+    text = f"Принято! Ваш запрос: каталог формата {data['format']}, {data['color']}, {data['pages']} полос, обложка: {data['cover']}, блок: {data['block']}, тираж {data['print']}. Наши менеджеры обязательно свяжутся с вами для уточнения стоимости и сроков. Благодарим Вас!"
+    await query.message.reply_text(text)
+    
+    # Владельцу
+    owner_text = f"Новый заказ — каталог\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nПолос: {data['pages']}\nОбложка: {data['cover']}\nБлок: {data['block']}\nТираж: {data['print']}"
+    await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
+    
+    context.user_data.clear()
+    return -1
+
+# --- ЗАПУСК БОТА ---
 def main():
     print("✅ Бот A_Group запущен!")
     app = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -159,8 +403,33 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler, pattern="^(graphic|visual|advert)$"))
     
-    # Здесь должны быть обработчики для буклета и каталога
-    # (они уже были в коде)
+    # Обработчик для буклета
+    booklet_handler = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex("^(буклет|хочу заказать буклет|заказать буклет|нужен буклет|сделать буклет)$"), start_booklet)],
+        states={
+            BOOKLET_FORMAT: [CallbackQueryHandler(booklet_format_handler, pattern="^booklet_")],
+            BOOKLET_COLOR: [CallbackQueryHandler(booklet_color_handler, pattern="^booklet_")],
+            BOOKLET_PAPER: [CallbackQueryHandler(booklet_paper_handler, pattern="^booklet_")],
+            BOOKLET_PRINT: [CallbackQueryHandler(booklet_print_handler, pattern="^booklet_")],
+        },
+        fallbacks=[]
+    )
+    app.add_handler(booklet_handler)
+    
+    # Обработчик для каталога
+    catalog_handler = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex("^(каталог|хочу заказать каталог|заказать каталог|нужен каталог|сделать каталог)$"), start_catalog)],
+        states={
+            CATALOG_FORMAT: [CallbackQueryHandler(catalog_format_handler, pattern="^catalog_")],
+            CATALOG_COLOR: [CallbackQueryHandler(catalog_color_handler, pattern="^catalog_")],
+            CATALOG_PAGES: [CallbackQueryHandler(catalog_pages_handler, pattern="^catalog_")],
+            CATALOG_COVER: [CallbackQueryHandler(catalog_cover_handler, pattern="^catalog_cover_")],
+            CATALOG_BLOCK: [CallbackQueryHandler(catalog_block_handler, pattern="^catalog_block_")],
+            CATALOG_PRINT: [CallbackQueryHandler(catalog_print_handler, pattern="^catalog_")],
+        },
+        fallbacks=[]
+    )
+    app.add_handler(catalog_handler)
     
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
