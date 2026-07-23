@@ -12,7 +12,49 @@ OWNER_CHAT_ID = 63938809  # Ваш Telegram ID
 BOOKLET_FORMAT, BOOKLET_COLOR, BOOKLET_PAPER, BOOKLET_PRINT = range(4)
 CATALOG_FORMAT, CATALOG_COLOR, CATALOG_PAGES, CATALOG_COVER, CATALOG_BLOCK, CATALOG_PRINT = range(6)
 
-# --- ФУНКЦИЯ ЗАПРОСА К OPENROUTER ---
+# --- ФУНКЦИЯ ПОИСКА В WIKIPEDIA (ЗАПАСНОЙ ВАРИАНТ) ---
+async def search_wikipedia(query):
+    try:
+        url = "https://ru.wikipedia.org/w/api.php"
+        params = {
+            "action": "query",
+            "list": "search",
+            "srsearch": query,
+            "format": "json",
+            "utf8": 1,
+            "srlimit": 1
+        }
+        response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data["query"]["search"]:
+                title = data["query"]["search"][0]["title"]
+                # Получаем краткое содержание
+                params = {
+                    "action": "query",
+                    "prop": "extracts",
+                    "exintro": True,
+                    "explaintext": True,
+                    "titles": title,
+                    "format": "json",
+                    "utf8": 1
+                }
+                response = requests.get(url, params=params, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    pages = data["query"]["pages"]
+                    for page_id, page in pages.items():
+                        if "extract" in page:
+                            extract = page["extract"]
+                            if len(extract) > 500:
+                                extract = extract[:500] + "..."
+                            return f"📖 **{title}**\n\n{extract}"
+            return "🤔 Не нашёл информации по вашему запросу в Wikipedia."
+        return "⚠️ Ошибка при обращении к Wikipedia."
+    except Exception as e:
+        return f"⚠️ Ошибка: {str(e)}"
+
+# --- ФУНКЦИЯ ЗАПРОСА К OPENROUTER (С ЗАПАСНЫМ ВАРИАНТОМ) ---
 async def ask_openrouter(user_message):
     try:
         response = requests.post(
@@ -32,14 +74,16 @@ async def ask_openrouter(user_message):
                 "max_tokens": 500,
                 "temperature": 0.7
             },
-            timeout=60
+            timeout=30
         )
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"]
         else:
-            return f"Ошибка API (HTTP {response.status_code})"
+            # Если OpenRouter вернул ошибку — используем Wikipedia
+            return await search_wikipedia(user_message)
     except Exception as e:
-        return f"Ошибка: {str(e)}"
+        # Если ошибка соединения — используем Wikipedia
+        return await search_wikipedia(user_message)
 
 # --- КОМАНДА /start ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -114,9 +158,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Стоимость зависит от сложности проекта. Мы сделаем расчёт после того, как вы оставите заявку. Напишите нам, и мы свяжемся с вами для консультации.")
         return
     
-    # --- ВСЁ ОСТАЛЬНОЕ — ЧЕРЕЗ OPENROUTER ---
+    # --- ВСЁ ОСТАЛЬНОЕ — ЧЕРЕЗ OPENROUTER, ПРИ ОШИБКЕ — WIKIPEDIA ---
     reply = await ask_openrouter(user_message)
-    await update.message.reply_text(reply)
+    await update.message.reply_text(reply, parse_mode="Markdown")
 
 # --- ФУНКЦИИ ДЛЯ БУКЛЕТА ---
 async def start_booklet(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -212,7 +256,7 @@ async def booklet_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
     text = f"Принято! Ваш запрос: буклет {data['format']}, {data['color']}, {data['paper']}, тираж {data['print']}. Наши менеджеры обязательно свяжутся с вами для уточнения стоимости и сроков. Благодарим Вас!"
     await query.message.reply_text(text)
     
-    # Уведомление владельцу (ИСПРАВЛЕНО)
+    # Уведомление владельцу
     owner_text = f"Новый заказ — буклет\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nБумага: {data['paper']}\nТираж: {data['print']}"
     await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
     
