@@ -12,8 +12,55 @@ OWNER_CHAT_ID = 63938809
 BOOKLET_FORMAT, BOOKLET_COLOR, BOOKLET_PAPER, BOOKLET_PRINT = range(4)
 CATALOG_FORMAT, CATALOG_COLOR, CATALOG_PAGES, CATALOG_COVER, CATALOG_BLOCK, CATALOG_PRINT = range(6)
 
-# --- ФУНКЦИЯ ЗАПРОСА К OPENROUTER (С РОУТЕРОМ openrouter/free) ---
+# --- ФУНКЦИЯ ПОИСКА В WIKIPEDIA ---
+async def search_wikipedia(query):
+    try:
+        url = "https://ru.wikipedia.org/w/api.php"
+        params = {
+            "action": "query",
+            "list": "search",
+            "srsearch": query,
+            "format": "json",
+            "utf8": 1,
+            "srlimit": 1
+        }
+        response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data["query"]["search"]:
+                title = data["query"]["search"][0]["title"]
+                params = {
+                    "action": "query",
+                    "prop": "extracts",
+                    "exintro": True,
+                    "explaintext": True,
+                    "titles": title,
+                    "format": "json",
+                    "utf8": 1
+                }
+                response = requests.get(url, params=params, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    pages = data["query"]["pages"]
+                    for page_id, page in pages.items():
+                        if "extract" in page:
+                            extract = page["extract"]
+                            if len(extract) > 500:
+                                extract = extract[:500] + "..."
+                            return f"📖 **{title}**\n\n{extract}"
+            return None
+        return None
+    except Exception as e:
+        return None
+
+# --- ФУНКЦИЯ ЗАПРОСА К OPENROUTER (С МОДЕЛЬЮ LLAMA 3.3 70B) ---
 async def ask_openrouter(user_message):
+    # Сначала ищем в Wikipedia
+    wiki_result = await search_wikipedia(user_message)
+    if wiki_result:
+        return wiki_result
+    
+    # Если в Wikipedia не нашлось — обращаемся к Llama 3.3 70B
     try:
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
@@ -24,9 +71,9 @@ async def ask_openrouter(user_message):
                 "Content-Type": "application/json",
             },
             json={
-                "model": "openrouter/free",  # УМНЫЙ РОУТЕР — ПОДБИРАЕТ ДОСТУПНУЮ БЕСПЛАТНУЮ МОДЕЛЬ
+                "model": "meta-llama/llama-3.3-70b-instruct:free",  # НОВАЯ МОДЕЛЬ!
                 "messages": [
-                    {"role": "system", "content": "Ты — консультант по дизайну и рекламе. Отвечай на русском языке, кратко и по делу."},
+                    {"role": "system", "content": "Ты — консультант по дизайну и рекламе. Отвечай на русском языке, кратко и по делу. Если не знаешь точного ответа, скажи об этом честно."},
                     {"role": "user", "content": user_message}
                 ],
                 "max_tokens": 500,
@@ -37,7 +84,7 @@ async def ask_openrouter(user_message):
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"]
         else:
-            return "Извините, я ещё учусь. Попробуйте переформулировать вопрос или спросить что-то другое."
+            return "Извините, я не смог найти точный ответ. Попробуйте переформулировать вопрос."
     except Exception as e:
         return "Извините, временная ошибка. Пожалуйста, попробуйте позже."
 
@@ -114,13 +161,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Стоимость зависит от сложности проекта. Мы сделаем расчёт после того, как вы оставите заявку. Напишите нам, и мы свяжемся с вами для консультации.")
         return
     
-    # --- ВСЁ ОСТАЛЬНОЕ — ЧЕРЕЗ openrouter/free ---
+    # --- ВСЁ ОСТАЛЬНОЕ — СНАЧАЛА WIKIPEDIA, ПОТОМ LLAMA 3.3 ---
     reply = await ask_openrouter(user_message)
     await update.message.reply_text(reply, parse_mode="Markdown")
 
-# ========================================
-# ФУНКЦИИ ДЛЯ БУКЛЕТА (опрос в 4 шага)
-# ========================================
+# --- ФУНКЦИИ ДЛЯ БУКЛЕТА (опрос в 4 шага) ---
 async def start_booklet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("A4", callback_data="booklet_a4")],
@@ -221,9 +266,7 @@ async def booklet_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data.clear()
     return -1
 
-# ========================================
-# ФУНКЦИИ ДЛЯ КАТАЛОГА (опрос в 6 шагов)
-# ========================================
+# --- ФУНКЦИИ ДЛЯ КАТАЛОГА (опрос в 6 шагов) ---
 async def start_catalog(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("A4", callback_data="catalog_a4")],
@@ -368,13 +411,12 @@ async def catalog_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
 # --- ЗАПУСК БОТА ---
 def main():
-    print("✅ Бот A_Group запущен!")
+    print("✅ Бот A_Group запущен (Llama 3.3 70B)!")
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler, pattern="^(graphic|visual|advert)$"))
     
-    # Обработчик для буклета
     booklet_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^(буклет|хочу заказать буклет|заказать буклет|нужен буклет|сделать буклет)$"), start_booklet)],
         states={
@@ -387,7 +429,6 @@ def main():
     )
     app.add_handler(booklet_handler)
     
-    # Обработчик для каталога
     catalog_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^(каталог|хочу заказать каталог|заказать каталог|нужен каталог|сделать каталог)$"), start_catalog)],
         states={
