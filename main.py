@@ -42,7 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Доброго дня! Я бот A_Group_AD. Чем могу помочь? Мы осуществляем:",
+        "Доброго дня! Я бот A_Group. Чем могу помочь? Мы осуществляем:",
         reply_markup=reply_markup
     )
 
