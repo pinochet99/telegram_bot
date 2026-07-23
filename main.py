@@ -1,7 +1,7 @@
 import os
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 
 TELEGRAM_TOKEN = "8833699342:AAGud8WsyHej9LtI5d6xkDRo3xoLSm2hqPg"
 OPENROUTER_API_KEY = "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"
@@ -50,11 +50,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     if query.data == "graphic":
-        await query.edit_message_text("🎨 **Графические решения:** разработка фирменного стиля, логотипов, упаковки и полиграфии.", reply_markup=query.message.reply_markup)
+        await query.edit_message_text("🎨 **Графические решения:** разработка фирменного стиля, логотипов, упаковки и полиграфии.", reply_markup=query.message.reply_markup, parse_mode="Markdown")
     elif query.data == "visual":
-        await query.edit_message_text("📊 **Визуальные стратегии:** создаём целостную систему визуальной коммуникации для вашего бренда.", reply_markup=query.message.reply_markup)
+        await query.edit_message_text("📊 **Визуальные стратегии:** создаём целостную систему визуальной коммуникации для вашего бренда.", reply_markup=query.message.reply_markup, parse_mode="Markdown")
     elif query.data == "advert":
-        await query.edit_message_text("📣 **Рекламные стратегии:** разрабатываем эффективные рекламные кампании для привлечения вашей аудитории.", reply_markup=query.message.reply_markup)
+        await query.edit_message_text("📣 **Рекламные стратегии:** разрабатываем эффективные рекламные кампании для привлечения вашей аудитории.", reply_markup=query.message.reply_markup, parse_mode="Markdown")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
@@ -68,7 +68,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     print("✅ Бот A_Group_AD запущен!")
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
