@@ -5,14 +5,14 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 # --- ТОКЕНЫ И НАСТРОЙКИ ---
 TELEGRAM_TOKEN = "8833699342:AAGud8WsyHej9LtI5d6xkDRo3xoLSm2hqPg"
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 OWNER_CHAT_ID = 63938809
 
 # --- СОСТОЯНИЯ ДЛЯ ОПРОСОВ ---
 BOOKLET_FORMAT, BOOKLET_COLOR, BOOKLET_PAPER, BOOKLET_PRINT = range(4)
 CATALOG_FORMAT, CATALOG_COLOR, CATALOG_PAGES, CATALOG_COVER, CATALOG_BLOCK, CATALOG_PRINT = range(6)
 
-# --- ФУНКЦИЯ ЗАПРОСА К OPENROUTER ---
+# --- ФУНКЦИЯ ЗАПРОСА К OPENROUTER (С РОУТЕРОМ openrouter/free) ---
 async def ask_openrouter(user_message):
     try:
         response = requests.post(
@@ -24,36 +24,7 @@ async def ask_openrouter(user_message):
                 "Content-Type": "application/json",
             },
             json={
-                "model": "google/gemini-2.0-flash-lite:free",
-                "messages": [
-                    {"role": "system", "content": "Ты — консультант по дизайну и рекламе. Отвечай на русском языке, кратко и по делу."},
-                    {"role": "user", "content": user_message}
-                ],
-                "max_tokens": 500,
-                "temperature": 0.7
-            },
-            timeout=30
-        )
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"]
-        else:
-            return await ask_openrouter_fallback(user_message)
-    except Exception as e:
-        return await ask_openrouter_fallback(user_message)
-
-# --- ЗАПАСНАЯ МОДЕЛЬ ---
-async def ask_openrouter_fallback(user_message):
-    try:
-        response = requests.post(
-            url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "HTTP-Referer": "https://t.me/a_group_1",
-                "X-Title": "A_Group",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "microsoft/phi-3-medium-128k-instruct:free",
+                "model": "openrouter/free",  # УМНЫЙ РОУТЕР — ПОДБИРАЕТ ДОСТУПНУЮ БЕСПЛАТНУЮ МОДЕЛЬ
                 "messages": [
                     {"role": "system", "content": "Ты — консультант по дизайну и рекламе. Отвечай на русском языке, кратко и по делу."},
                     {"role": "user", "content": user_message}
@@ -100,22 +71,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_message:
         return
     
-    # Приветствия
+    # --- ПРИВЕТСТВИЯ ---
     if user_message.lower() in ["привет", "здравствуйте", "добрый день", "доброго дня", "доброе утро", "добрый вечер"]:
         await start(update, context)
         return
     
-    # Заказ буклета
+    # --- ЗАКАЗ БУКЛЕТА ---
     if user_message.lower() in ["буклет", "хочу заказать буклет", "заказать буклет", "нужен буклет", "сделать буклет", "дизайн буклета", "буклеты", "публикация"]:
         await start_booklet(update, context)
         return
     
-    # Заказ каталога
+    # --- ЗАКАЗ КАТАЛОГА ---
     if user_message.lower() in ["каталог", "хочу заказать каталог", "заказать каталог", "нужен каталог", "сделать каталог", "сверстать каталог", "делать каталог", "сделать издание"]:
         await start_catalog(update, context)
         return
     
-    # О компании
+    # --- ОТВЕТЫ НА ВОПРОСЫ О КОМПАНИИ ---
     if user_message.lower() in ["что за компания", "расскажите о компании", "кто вы", "что вы за организация", "кто такая а-групп"]:
         await update.message.reply_text(
             "А-Групп — это дизайн-студия полного цикла и продакшн-центр. Мы создаём визуальный контент для бизнеса любого масштаба.\n\n"
@@ -128,22 +99,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Локация
+    # --- ВОПРОСЫ О ЛОКАЦИИ ---
     if user_message.lower() in ["где вы находитесь", "ваша локация", "где ваш офис", "где вы", "вы где"]:
         await update.message.reply_text("Мы находимся в Санкт-Петербурге. Вы можете оставить сообщение, и мы с вами обязательно свяжемся.")
         return
     
-    # Контакты
+    # --- ВОПРОСЫ О КОНТАКТАХ ---
     if user_message.lower() in ["как с вами связаться", "контакты", "как вам написать"]:
         await update.message.reply_text("Вы можете оставить сообщение, и мы с вами обязательно свяжемся. Мы работаем по всей России.")
         return
     
-    # Цены
+    # --- ВОПРОСЫ О ЦЕНАХ ---
     if user_message.lower() in ["сколько стоят услуги", "прайс", "цены"]:
         await update.message.reply_text("Стоимость зависит от сложности проекта. Мы сделаем расчёт после того, как вы оставите заявку. Напишите нам, и мы свяжемся с вами для консультации.")
         return
     
-    # Всё остальное — через ИИ
+    # --- ВСЁ ОСТАЛЬНОЕ — ЧЕРЕЗ openrouter/free ---
     reply = await ask_openrouter(user_message)
     await update.message.reply_text(reply, parse_mode="Markdown")
 
@@ -239,11 +210,11 @@ async def booklet_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
     data = context.user_data['booklet_data']
     username = update.effective_user.username or update.effective_user.first_name
     
-    # Клиенту
+    # Уведомление клиенту
     text = f"Принято! Ваш запрос: буклет {data['format']}, {data['color']}, {data['paper']}, тираж {data['print']}. Наши менеджеры обязательно свяжутся с вами для уточнения стоимости и сроков. Благодарим Вас!"
     await query.message.reply_text(text)
     
-    # Владельцу
+    # Уведомление владельцу
     owner_text = f"Новый заказ — буклет\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nБумага: {data['paper']}\nТираж: {data['print']}"
     await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
     
@@ -384,11 +355,11 @@ async def catalog_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
     data = context.user_data['catalog_data']
     username = update.effective_user.username or update.effective_user.first_name
     
-    # Клиенту
+    # Уведомление клиенту
     text = f"Принято! Ваш запрос: каталог формата {data['format']}, {data['color']}, {data['pages']} полос, обложка: {data['cover']}, блок: {data['block']}, тираж {data['print']}. Наши менеджеры обязательно свяжутся с вами для уточнения стоимости и сроков. Благодарим Вас!"
     await query.message.reply_text(text)
     
-    # Владельцу
+    # Уведомление владельцу
     owner_text = f"Новый заказ — каталог\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nПолос: {data['pages']}\nОбложка: {data['cover']}\nБлок: {data['block']}\nТираж: {data['print']}"
     await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
     
