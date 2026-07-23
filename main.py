@@ -1,7 +1,7 @@
 import os
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes, ConversationHandler
 
 # --- ТОКЕНЫ И НАСТРОЙКИ ---
 TELEGRAM_TOKEN = "8833699342:AAGud8WsyHej9LtI5d6xkDRo3xoLSm2hqPg"
@@ -100,7 +100,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # --- ВОПРОСЫ О ЛОКАЦИИ ---
-    if user_message.lower() in ["где вы находитесь", "ваша локация", "где ваш офис", "где вы", "что где", "как где", "вы кто", "вы где", "как"]:
+    if user_message.lower() in ["где вы находитесь", "ваша локация", "где ваш офис", "где вы", "вы где"]:
         await update.message.reply_text("Мы находимся в Санкт-Петербурге. Вы можете оставить сообщение, и мы с вами обязательно свяжемся.")
         return
     
@@ -216,7 +216,6 @@ async def booklet_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
     owner_text = f"Новый заказ — буклет\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nБумага: {data['paper']}\nТираж: {data['print']}"
     await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
     
-    # Очищаем состояние
     context.user_data.clear()
     return -1
 
@@ -352,15 +351,12 @@ async def catalog_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
     data = context.user_data['catalog_data']
     username = update.effective_user.username or update.effective_user.first_name
     
-    # Уведомление клиенту
     text = f"Принято! Ваш запрос: каталог формата {data['format']}, {data['color']}, {data['pages']} полос, обложка: {data['cover']}, блок: {data['block']}, тираж {data['print']}. Наши менеджеры обязательно свяжутся с вами для уточнения стоимости и сроков. Благодарим Вас!"
     await query.message.reply_text(text)
     
-    # Уведомление владельцу
     owner_text = f"Новый заказ — каталог\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nПолос: {data['pages']}\nОбложка: {data['cover']}\nБлок: {data['block']}\nТираж: {data['print']}"
     await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
     
-    # Очищаем состояние
     context.user_data.clear()
     return -1
 
@@ -369,11 +365,9 @@ def main():
     print("✅ Бот A_Group запущен!")
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     
-    # Обработчики команд и сообщений
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler, pattern="^(graphic|visual|advert)$"))
     
-    # Обработчики для буклета
     booklet_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^(буклет|хочу заказать буклет|заказать буклет|нужен буклет|сделать буклет)$"), start_booklet)],
         states={
@@ -386,7 +380,6 @@ def main():
     )
     app.add_handler(booklet_handler)
     
-    # Обработчики для каталога
     catalog_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^(каталог|хочу заказать каталог|заказать каталог|нужен каталог|сделать каталог)$"), start_catalog)],
         states={
@@ -401,7 +394,6 @@ def main():
     )
     app.add_handler(catalog_handler)
     
-    # Обработчик всех остальных сообщений
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     app.run_polling()
