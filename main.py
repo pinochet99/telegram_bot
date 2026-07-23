@@ -3,9 +3,11 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 
+# --- ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
+# --- ФУНКЦИЯ ЗАПРОСА К DEEPSEEK ---
 async def ask_deepseek(user_message):
     try:
         response = requests.post(
@@ -22,7 +24,8 @@ async def ask_deepseek(user_message):
                 ],
                 "max_tokens": 500,
                 "temperature": 0.7
-            }
+            },
+            timeout=30
         )
         if response.status_code == 200:
             return response.json()["choices"][0]["message"]["content"]
@@ -31,6 +34,7 @@ async def ask_deepseek(user_message):
     except Exception as e:
         return f"Ошибка: {str(e)}"
 
+# --- КОМАНДА /start ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🎨 Графические решения", callback_data="graphic")],
@@ -43,31 +47,51 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
+# --- ОБРАБОТЧИК КНОПОК ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     if query.data == "graphic":
-        await query.edit_message_text("🎨 **Графические решения:** Разработка фирменного стиля, логотипов, упаковки и полиграфии.", reply_markup=query.message.reply_markup)
+        await query.edit_message_text(
+            "🎨 **Графические решения:** Разработка фирменного стиля, логотипов, упаковки и полиграфии.",
+            reply_markup=query.message.reply_markup
+        )
     elif query.data == "visual":
-        await query.edit_message_text("📊 **Визуальные стратегии:** Создаём целостную систему визуальной коммуникации для вашего бренда.", reply_markup=query.message.reply_markup)
+        await query.edit_message_text(
+            "📊 **Визуальные стратегии:** Создаём целостную систему визуальной коммуникации для вашего бренда.",
+            reply_markup=query.message.reply_markup
+        )
     elif query.data == "advert":
-        await query.edit_message_text("📣 **Рекламные стратегии:** Разрабатываем эффективные рекламные кампании для привлечения вашей аудитории.", reply_markup=query.message.reply_markup)
+        await query.edit_message_text(
+            "📣 **Рекламные стратегии:** Разрабатываем эффективные рекламные кампании для привлечения вашей аудитории.",
+            reply_markup=query.message.reply_markup
+        )
 
+# --- ОТВЕТ НА ЛЮБОЕ СООБЩЕНИЕ ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     if not user_message:
         return
-    if user_message.lower() in ["привет", "здравствуйте", "добрый день"]:
+    if user_message.lower() in ["привет", "здравствуйте", "добрый день", "доброе утро", "добрый вечер"]:
         await start(update, context)
         return
     reply = await ask_deepseek(user_message)
     await update.message.reply_text(reply)
 
+# --- ЗАПУСК БОТА ---
 def main():
+    if not TELEGRAM_TOKEN:
+        print("❌ Ошибка: TELEGRAM_BOT_TOKEN не найден!")
+        return
+    if not DEEPSEEK_API_KEY:
+        print("⚠️ Предупреждение: DEEPSEEK_API_KEY не найден. Бот будет работать ограниченно.")
+
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    print("✅ Бот запущен!")
     app.run_polling()
 
 if __name__ == "__main__":
