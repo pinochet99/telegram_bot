@@ -82,7 +82,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # --- ЗАКАЗ КАТАЛОГА ---
-    if user_message.lower() in ["каталог", "хочу заказать каталог", "заказать каталог", "нужен каталог", "сделать каталог, "сверстать каталог", "делать каталог", "сделать издание"]:
+    if user_message.lower() in ["каталог", "хочу заказать каталог", "заказать каталог", "нужен каталог", "сделать каталог", "сверстать каталог", "делать каталог", "сделать издание"]:
         await start_catalog(update, context)
         return
     
