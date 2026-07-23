@@ -13,7 +13,7 @@ async def ask_openrouter(user_message):
             headers={
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "HTTP-Referer": "https://t.me/a_group_1",
-                "X-Title": "A_Group_AD",
+                "X-Title": "A_Group",
                 "Content-Type": "application/json",
             },
             json={
