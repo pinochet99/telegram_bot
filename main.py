@@ -77,7 +77,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # --- ЗАКАЗ БУКЛЕТА ---
-    if user_message.lower() in ["буклет", "хочу заказать буклет", "заказать буклет", "нужен буклет", "сделать буклет", "дизайн буклета", " буклеты", "публикация"]:
+    if user_message.lower() in ["буклет", "хочу заказать буклет", "заказать буклет", "нужен буклет", "сделать буклет", "дизайн буклета", "буклеты", "публикация"]:
         await start_booklet(update, context)
         return
     
@@ -100,7 +100,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # --- ВОПРОСЫ О ЛОКАЦИИ ---
-    if user_message.lower() in ["где вы находитесь", "ваша локация", "где ваш офис", "где вы", "вы где", "что где", "как где", "вы кто", "кто", "вы где", "как"]:
+    if user_message.lower() in ["где вы находитесь", "ваша локация", "где ваш офис", "где вы", "что где", "как где", "вы кто", "вы где", "как"]:
         await update.message.reply_text("Мы находимся в Санкт-Петербурге. Вы можете оставить сообщение, и мы с вами обязательно свяжемся.")
         return
     
