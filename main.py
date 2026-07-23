@@ -214,7 +214,7 @@ async def booklet_print_handler(update: Update, context: ContextTypes.DEFAULT_TY
     
     # Уведомление владельцу
     owner_text = f"Новый заказ — буклет\nКлиент: {username} (ID: {update.effective_user.id})\nФормат: {data['format']}\nЦветность: {data['color']}\nБумага: {data['paper']}\nТираж: {data['print']}"
-    await context.bot.send_message(chat_id=OWNER_CHAT_ID, text=owner_text)
+    await context.bot.send_message(chat_id=OWNER_CHAT_ID = 63938809, text=owner_text)
     
     context.user_data.clear()
     return -1
