@@ -3,9 +3,11 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ContextTypes
 
+# --- ТОКЕНЫ ---
 TELEGRAM_TOKEN = "8833699342:AAGud8WsyHej9LtI5d6xkDRo3xoLSm2hqPg"
 OPENROUTER_API_KEY = "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"
 
+# --- ФУНКЦИЯ ЗАПРОСА К OPENROUTER ---
 async def ask_openrouter(user_message):
     try:
         response = requests.post(
@@ -13,7 +15,7 @@ async def ask_openrouter(user_message):
             headers={
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "HTTP-Referer": "https://t.me/a_group_1",
-                "X-Title": "A-Studio Advert Bot",
+                "X-Title": "A_Group_AD",
                 "Content-Type": "application/json",
             },
             json={
@@ -34,6 +36,7 @@ async def ask_openrouter(user_message):
     except Exception as e:
         return f"Ошибка: {str(e)}"
 
+# --- КОМАНДА /start ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🎨 Графические решения", callback_data="graphic")],
@@ -42,20 +45,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Доброго дня! Я бот A-Групп Дизайн. Чем могу помочь? Мы осуществляем:",
+        "Доброго дня! Я бот A_Group_AD. Чем могу помочь? Мы осуществляем:",
         reply_markup=reply_markup
     )
 
+# --- ОБРАБОТЧИК КНОПОК ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     if query.data == "graphic":
-        await query.edit_message_text("🎨 Графические решения: разработка фирменного стиля, логотипов, упаковки и полиграфии.", reply_markup=query.message.reply_markup)
+        await query.edit_message_text("🎨 **Графические решения:** разработка фирменного стиля, логотипов, упаковки и полиграфии.", reply_markup=query.message.reply_markup)
     elif query.data == "visual":
-        await query.edit_message_text("📊 Визуальные стратегии: создаём целостную систему визуальной коммуникации для вашего бренда.", reply_markup=query.message.reply_markup)
+        await query.edit_message_text("📊 **Визуальные стратегии:** создаём целостную систему визуальной коммуникации для вашего бренда.", reply_markup=query.message.reply_markup)
     elif query.data == "advert":
-        await query.edit_message_text("📣 Рекламные стратегии: разрабатываем эффективные рекламные кампании для привлечения вашей аудитории.", reply_markup=query.message.reply_markup)
+        await query.edit_message_text("📣 **Рекламные стратегии:** разрабатываем эффективные рекламные кампании для привлечения вашей аудитории.", reply_markup=query.message.reply_markup)
 
+# --- ОТВЕТ НА ЛЮБОЕ СООБЩЕНИЕ ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     if not user_message:
@@ -66,8 +71,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply = await ask_openrouter(user_message)
     await update.message.reply_text(reply)
 
+# --- ЗАПУСК БОТА ---
 def main():
-    print("✅ Бот запущен!")
+    print("✅ Бот A_Group_AD запущен!")
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
