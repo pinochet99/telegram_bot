@@ -60,7 +60,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     if not user_message:
         return
-    if user_message.lower() in ["привет", "здравствуйте", "добрый день"]:
+    if user_message.lower() in ["привет", "здравствуйте", "добрый день", "доброго дня", "доброе утро", "добрый вечер", "здрасьте", "салют", "Как дела?", "Hello!", "Hi!", "доброго времени суток!"]:
         await start(update, context)
         return
     reply = await ask_openrouter(user_message)
